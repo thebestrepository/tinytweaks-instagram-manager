@@ -12,11 +12,25 @@ async function call(path, body, timeoutMs = 90_000) {
       body: JSON.stringify(body),
       signal: controller.signal,
     })
+
+    const text = await res.text()
+
     if (!res.ok) {
-      const text = await res.text().catch(() => '')
       throw new Error(`n8n error ${res.status}: ${text.substring(0, 200)}`)
     }
-    return res.json()
+
+    if (!text || !text.trim()) {
+      throw new Error(
+        `n8n returned an empty response from /${path}. ` +
+        `Make sure the workflow is imported and activated in n8n.`
+      )
+    }
+
+    try {
+      return JSON.parse(text)
+    } catch {
+      throw new Error(`n8n returned invalid JSON from /${path}: ${text.substring(0, 200)}`)
+    }
   } catch (err) {
     if (err.name === 'AbortError') throw new Error('Request timed out. n8n may be cold-starting — try again in 30s.')
     throw err
